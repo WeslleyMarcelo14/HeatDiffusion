@@ -83,7 +83,7 @@ class HeatDiffusionDistributed:
         slice_data = self.grid[send_start:send_end, :].copy()
         
         # Serializa e envia
-        data = pickle.dumps(slice_data)
+        data = pickle.dumps(slice_data, protocol=pickle.HIGHEST_PROTOCOL)
         size = len(data)
         
         # Envia tamanho e dados
@@ -228,21 +228,19 @@ class DistributedWorker:
         slice_grid = pickle.loads(data)
         height, width = slice_grid.shape
         
-        # Processa a fatia
+        # Processa a fatia usando vetorização
         new_slice = slice_grid.copy()
         
-        # Atualiza células internas
-        for i in range(1, height - 1):
-            for j in range(1, width - 1):
-                new_slice[i, j] = (
-                    slice_grid[i-1, j] +     # Norte
-                    slice_grid[i+1, j] +     # Sul
-                    slice_grid[i, j-1] +     # Oeste
-                    slice_grid[i, j+1]       # Leste
-                ) / 4.0
+        # Atualiza células internas usando operações vetoriais numpy
+        new_slice[1:-1, 1:-1] = 0.25 * (
+            slice_grid[0:-2, 1:-1] + # Norte
+            slice_grid[2:, 1:-1] +   # Sul
+            slice_grid[1:-1, 0:-2] + # Oeste
+            slice_grid[1:-1, 2:]     # Leste
+        )
         
         # Envia resultado de volta
-        result_data = pickle.dumps(new_slice)
+        result_data = pickle.dumps(new_slice, protocol=pickle.HIGHEST_PROTOCOL)
         result_size = len(result_data)
         
         self.socket.sendall(struct.pack('!I', result_size))
