@@ -24,14 +24,14 @@ class DifusaoCalorDistribuida:
         
         self.nova_grade = self.grade.copy()
         
-        self.trabalhadores: List[socket.socket] = []
-        self.faixas_trabalhadores: List[Tuple[int, int]] = []
+        self.workers: List[socket.socket] = []
+        self.faixas_workers: List[Tuple[int, int]] = []
     
-    def adicionar_trabalhador(self, socket_trabalhador: socket.socket, linha_inicio: int, linha_fim: int):
-        self.trabalhadores.append(socket_trabalhador)
-        self.faixas_trabalhadores.append((linha_inicio, linha_fim))
+    def adicionar_worker(self, socket_worker: socket.socket, linha_inicio: int, linha_fim: int):
+        self.workers.append(socket_worker)
+        self.faixas_workers.append((linha_inicio, linha_fim))
     
-    def _enviar_fatia_grade(self, socket_trabalhador: socket.socket, linha_inicio: int, linha_fim: int):
+    def _enviar_fatia_grade(self, socket_worker: socket.socket, linha_inicio: int, linha_fim: int):
         inicio_envio = max(0, linha_inicio - 1)
         fim_envio = min(self.altura, linha_fim + 1)
         
@@ -40,11 +40,11 @@ class DifusaoCalorDistribuida:
         dados = pickle.dumps(dados_fatia, protocol=pickle.HIGHEST_PROTOCOL)
         tamanho = len(dados)
         
-        socket_trabalhador.sendall(struct.pack('!I', tamanho))
-        socket_trabalhador.sendall(dados)
+        socket_worker.sendall(struct.pack('!I', tamanho))
+        socket_worker.sendall(dados)
     
-    def _receber_fatia_grade(self, socket_trabalhador: socket.socket, linha_inicio: int, linha_fim: int):
-        dados_tamanho = socket_trabalhador.recv(4)
+    def _receber_fatia_grade(self, socket_worker: socket.socket, linha_inicio: int, linha_fim: int):
+        dados_tamanho = socket_worker.recv(4)
         if len(dados_tamanho) < 4:
             raise ConnectionError("Falha ao receber tamanho dos dados")
         
@@ -52,7 +52,7 @@ class DifusaoCalorDistribuida:
         
         dados = b''
         while len(dados) < tamanho:
-            pedaco = socket_trabalhador.recv(tamanho - len(dados))
+            pedaco = socket_worker.recv(tamanho - len(dados))
             if not pedaco:
                 raise ConnectionError("Conexão fechada durante recebimento")
             dados += pedaco
@@ -67,11 +67,11 @@ class DifusaoCalorDistribuida:
         self.nova_grade[inicio_real:fim_real, 1:-1] = dados_fatia[fatia_inicio:fatia_fim, 1:-1]
     
     def atualizar(self):
-        for socket_trabalhador, (linha_inicio, linha_fim) in zip(self.trabalhadores, self.faixas_trabalhadores):
-            self._enviar_fatia_grade(socket_trabalhador, linha_inicio, linha_fim)
+        for socket_worker, (linha_inicio, linha_fim) in zip(self.workers, self.faixas_workers):
+            self._enviar_fatia_grade(socket_worker, linha_inicio, linha_fim)
         
-        for socket_trabalhador, (linha_inicio, linha_fim) in zip(self.trabalhadores, self.faixas_trabalhadores):
-            self._receber_fatia_grade(socket_trabalhador, linha_inicio, linha_fim)
+        for socket_worker, (linha_inicio, linha_fim) in zip(self.workers, self.faixas_workers):
+            self._receber_fatia_grade(socket_worker, linha_inicio, linha_fim)
         
         self.grade, self.nova_grade = self.nova_grade, self.grade
     
@@ -93,15 +93,15 @@ class DifusaoCalorDistribuida:
         return np.mean(self.grade[1:-1, 1:-1])
     
     def fechar(self):
-        for socket_trabalhador in self.trabalhadores:
+        for socket_worker in self.workers:
             try:
-                socket_trabalhador.close()
+                socket_worker.close()
             except:
                 pass
-        self.trabalhadores.clear()
+        self.workers.clear()
 
 
-class TrabalhadorDistribuido:
+class WorkerDistribuido:
     
     def __init__(self, host='localhost', porta=8888):
         self.host = host
@@ -151,34 +151,34 @@ class TrabalhadorDistribuido:
             self.socket.close()
 
 
-def executar_servidor_distribuido(largura, altura, iteracoes, num_trabalhadores, porta=8888, detalhado=True):
+def executar_servidor_distribuido(largura, altura, iteracoes, num_workers, porta=8888, detalhado=True):
     socket_servidor = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     socket_servidor.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     socket_servidor.bind(('localhost', porta))
-    socket_servidor.listen(num_trabalhadores)
+    socket_servidor.listen(num_workers)
     
     if detalhado:
-        print(f"Aguardando {num_trabalhadores} trabalhadores conectarem na porta {porta}...")
+        print(f"Aguardando {num_workers} workers conectarem na porta {porta}...")
     
     simulacao = DifusaoCalorDistribuida(largura, altura)
     
-    linhas_por_trabalhador = (altura - 2) // num_trabalhadores
-    resto = (altura - 2) % num_trabalhadores
+    linhas_por_worker = (altura - 2) // num_workers
+    resto = (altura - 2) % num_workers
     
     linha_inicio = 1
-    for i in range(num_trabalhadores):
-        socket_trabalhador, addr = socket_servidor.accept()
+    for i in range(num_workers):
+        socket_worker, addr = socket_servidor.accept()
         if detalhado:
-            print(f"Trabalhador {i+1} conectado de {addr}")
+            print(f"Worker {i+1} conectado de {addr}")
         
-        linhas = linhas_por_trabalhador + (1 if i < resto else 0)
+        linhas = linhas_por_worker + (1 if i < resto else 0)
         linha_fim = linha_inicio + linhas
         
-        simulacao.adicionar_trabalhador(socket_trabalhador, linha_inicio, linha_fim)
+        simulacao.adicionar_worker(socket_worker, linha_inicio, linha_fim)
         linha_inicio = linha_fim
     
     if detalhado:
-        print("Todos os trabalhadores conectados. Iniciando simulação...\n")
+        print("Todos os workers conectados. Iniciando simulação...\n")
     
     tempo_inicio = time.time()
     iteracoes_reais = simulacao.simular(iteracoes)
@@ -188,7 +188,7 @@ def executar_servidor_distribuido(largura, altura, iteracoes, num_trabalhadores,
     if detalhado:
         print(f"Simulação Distribuída:")
         print(f"  Tamanho: {largura}x{altura}")
-        print(f"  Trabalhadores: {num_trabalhadores}")
+        print(f"  Workers: {num_workers}")
         print(f"  Iterações: {iteracoes_reais}")
         print(f"  Tempo de execução: {tempo_execucao:.4f} segundos")
         print(f"  Temperatura média: {simulacao.obter_temp_media():.4f}°C")
@@ -199,9 +199,9 @@ def executar_servidor_distribuido(largura, altura, iteracoes, num_trabalhadores,
     return tempo_execucao
 
 
-def executar_trabalhador_distribuido(host='localhost', porta=8888, iteracoes=None):
-    trabalhador = TrabalhadorDistribuido(host, porta)
-    trabalhador.conectar()
+def executar_worker_distribuido(host='localhost', porta=8888, iteracoes=None):
+    worker = WorkerDistribuido(host, porta)
+    worker.conectar()
     
     try:
         iteracao = 0
@@ -210,12 +210,12 @@ def executar_trabalhador_distribuido(host='localhost', porta=8888, iteracoes=Non
                 break
             
             try:
-                trabalhador.processar_fatia()
+                worker.processar_fatia()
                 iteracao += 1
             except (ConnectionError, EOFError):
                 break
     finally:
-        trabalhador.fechar()
+        worker.fechar()
 
 
 if __name__ == "__main__":
@@ -224,9 +224,9 @@ if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] == 'worker':
         host = sys.argv[2] if len(sys.argv) > 2 else 'localhost'
         porta = int(sys.argv[3]) if len(sys.argv) > 3 else 8888
-        executar_trabalhador_distribuido(host, porta)
+        executar_worker_distribuido(host, porta)
     else:
         print("=== Simulação Distribuída de Difusão de Calor ===\n")
-        print("Para executar trabalhadores, use: python distribuido.py worker [host] [porta]")
+        print("Para executar workers, use: python distribuido.py worker [host] [porta]")
         print("Para executar servidor, use: python teste_desempenho.py --distributed\n")
 

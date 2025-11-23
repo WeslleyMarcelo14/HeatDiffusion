@@ -32,7 +32,7 @@ class DifusaoCalorParalela:
         self.faixas_threads = self._calcular_faixas_threads()
 
         self.threads: List[threading.Thread] = []
-        self._iniciar_trabalhadores()
+        self._iniciar_workers()
 
     def _calcular_faixas_threads(self):
         linhas_uteis = max(1, self.altura - 2)
@@ -50,10 +50,10 @@ class DifusaoCalorParalela:
 
         return faixas
 
-    def _iniciar_trabalhadores(self):
+    def _iniciar_workers(self):
         for id_thread, (linha_inicio, linha_fim) in enumerate(self.faixas_threads):
             thread = threading.Thread(
-                target=self._loop_trabalhador,
+                target=self._loop_worker,
                 args=(id_thread, linha_inicio, linha_fim),
                 daemon=True,
             )
@@ -74,7 +74,7 @@ class DifusaoCalorParalela:
         self.nova_grade[linha_inicio:linha_fim, 1:-1] = novos_valores
         return float(np.max(np.abs(novos_valores - valores_antigos))) if valores_antigos.size else 0.0
 
-    def _loop_trabalhador(self, id_thread, linha_inicio, linha_fim):
+    def _loop_worker(self, id_thread, linha_inicio, linha_fim):
         while True:
             self.barreira_inicio.wait()
             if self.evento_parada.is_set():
@@ -85,7 +85,7 @@ class DifusaoCalorParalela:
 
             self.barreira_fim.wait()
 
-    def _parar_trabalhadores(self):
+    def _parar_workers(self):
         self.evento_parada.set()
         self.barreira_inicio.wait()
         self.barreira_fim.wait()
@@ -112,7 +112,7 @@ class DifusaoCalorParalela:
                 if dif_maxima < limite_convergencia:
                     break
         finally:
-            self._parar_trabalhadores()
+            self._parar_workers()
 
         return iteracoes_reais
 

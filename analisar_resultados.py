@@ -34,7 +34,7 @@ def calcular_eficiencia(resultados):
             if resultado['versao'] == 'paralelo':
                 recursos = resultado['threads']
             elif resultado['versao'] == 'distribuido':
-                recursos = resultado['trabalhadores']
+                recursos = resultado['workers']
             else:
                 recursos = 1
             
@@ -53,14 +53,14 @@ def gerar_tabela_detalhada(resultados):
     print("\n" + "="*100)
     print("TABELA DETALHADA DE DESEMPENHO")
     print("="*100)
-    print(f"{'Versão':<15} {'Tamanho':<15} {'Threads':<10} {'Trabalhadores':<15} "
+    print(f"{'Versão':<15} {'Tamanho':<15} {'Threads':<10} {'Workers':<15} "
           f"{'Tempo (s)':<15} {'Speedup':<12} {'Eficiência':<12}")
     print("-"*100)
     
     for _, linha in df.iterrows():
         tamanho_str = f"{int(linha['largura'])}x{int(linha['altura'])}"
         print(f"{linha['versao']:<15} {tamanho_str:<15} {int(linha['threads']):<10} "
-              f"{int(linha['trabalhadores']):<15} {linha['tempo_execucao']:<15.4f} "
+              f"{int(linha['workers']):<15} {linha['tempo_execucao']:<15.4f} "
               f"{linha['speedup']:<12.4f} {linha['eficiencia']:<12.4f}")
     
     return df
@@ -97,14 +97,14 @@ def plotar_comparacao_eficiencia(df, diretorio_saida):
                 (df_distribuido['largura'] == linha_tamanho['largura']) & 
                 (df_distribuido['altura'] == linha_tamanho['altura'])
             ]
-            dados_tamanho = dados_tamanho.sort_values('trabalhadores')
+            dados_tamanho = dados_tamanho.sort_values('workers')
             rotulo = f"{int(linha_tamanho['largura'])}x{int(linha_tamanho['altura'])}"
-            ax2.plot(dados_tamanho['trabalhadores'], dados_tamanho['eficiencia'], 
+            ax2.plot(dados_tamanho['workers'], dados_tamanho['eficiencia'], 
                     marker='o', label=rotulo)
         
-        ax2.set_xlabel('Número de Trabalhadores')
+        ax2.set_xlabel('Número de Workers')
         ax2.set_ylabel('Eficiência')
-        ax2.set_title('Eficiência vs Trabalhadores (Distribuído)')
+        ax2.set_title('Eficiência vs Workers (Distribuído)')
         ax2.legend()
         ax2.grid(True, alpha=0.3)
         ax2.axhline(y=1.0, color='r', linestyle='--', alpha=0.5, label='Eficiência Ideal')
@@ -133,7 +133,7 @@ def plotar_escalabilidade(df, diretorio_saida):
         if versao == 'paralelo':
             recursos = df_tamanho_maximo['threads'].values
         else:
-            recursos = df_tamanho_maximo['trabalhadores'].values
+            recursos = df_tamanho_maximo['workers'].values
         
         speedups = df_tamanho_maximo['speedup'].values
         
@@ -142,12 +142,12 @@ def plotar_escalabilidade(df, diretorio_saida):
     if not df.empty:
         max_recursos = max(
             df[df['versao'] == 'paralelo']['threads'].max() if not df[df['versao'] == 'paralelo'].empty else 0,
-            df[df['versao'] == 'distribuido']['trabalhadores'].max() if not df[df['versao'] == 'distribuido'].empty else 0
+            df[df['versao'] == 'distribuido']['workers'].max() if not df[df['versao'] == 'distribuido'].empty else 0
         )
         ideal = np.arange(1, max_recursos + 1)
         ax.plot(ideal, ideal, 'k--', alpha=0.5, label='Ideal (Linear)')
     
-    ax.set_xlabel('Número de Recursos (Threads/Trabalhadores)')
+    ax.set_xlabel('Número de Recursos (Threads/Workers)')
     ax.set_ylabel('Speedup')
     ax.set_title('Escalabilidade')
     ax.legend()
