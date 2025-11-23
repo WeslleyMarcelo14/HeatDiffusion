@@ -55,10 +55,10 @@ python paralelo.py
 **Servidor (mestre):**
 
 ```bash
-python teste_desempenho.py --distributed
+python benchmark.py --distributed
 ```
 
-**Trabalhadores (em terminais separados ou máquinas diferentes):**
+**Workers (em terminais separados ou máquinas diferentes):**
 
 ```bash
 python distribuido.py worker [host] [porta]
@@ -69,19 +69,19 @@ python distribuido.py worker [host] [porta]
 Para executar todos os benchmarks e gerar relatórios:
 
 ```bash
-python teste_desempenho.py
+python benchmark.py
 ```
 
 #### Opções do Benchmark
 
 ```bash
-python teste_desempenho.py [opções]
+python benchmark.py [opções]
 
 Opções:
   --sizes SIZE [SIZE ...]    Tamanhos da grade (padrão: 100 200 500)
   --iterations ITER          Número de iterações (padrão: 1000)
   --threads T [T ...]        Números de threads (padrão: 1 2 4 8)
-  --workers W [W ...]        Números de trabalhadores (padrão: 1 2 4)
+  --workers W [W ...]        Números de workers (padrão: 1 2 4)
   --sequential               Executar apenas benchmark sequencial
   --parallel                 Executar apenas benchmark paralelo
   --distributed              Executar apenas benchmark distribuído
@@ -92,13 +92,13 @@ Opções:
 
 ```bash
 # Benchmark completo com tamanhos personalizados
-python teste_desempenho.py --sizes 100 300 500 1000 --iterations 500
+python benchmark.py --sizes 100 300 500 1000 --iterations 500
 
 # Apenas versão paralela com diferentes números de threads
-python teste_desempenho.py --parallel --threads 1 2 4 8 16
+python benchmark.py --parallel --threads 1 2 4 8 16
 
 # Apenas versão distribuída
-python teste_desempenho.py --distributed --workers 2 4 8
+python benchmark.py --distributed --workers 2 4 8
 ```
 
 ## 📊 Resultados
@@ -109,7 +109,7 @@ Os resultados são salvos no diretório `resultados/` (ou o diretório especific
 - `resultados_benchmark.csv`: Resultados em formato CSV
 - `tamanho_vs_tempo.png`: Gráfico de tempo vs tamanho do problema
 - `threads_vs_speedup.png`: Gráfico de speedup vs número de threads
-- `trabalhadores_vs_speedup.png`: Gráfico de speedup vs número de trabalhadores
+- `workers_vs_speedup.png`: Gráfico de speedup vs número de workers
 
 ## 🔬 Metodologia
 
@@ -142,7 +142,7 @@ Onde:
 **Versão Distribuída:**
 
 - Servidor mestre coordena a simulação
-- Trabalhadores processam faixas da grade
+- Workers processam faixas da grade
 - Comunicação via sockets TCP/IP com serialização pickle
 
 ## 📈 Análise de Desempenho
@@ -151,7 +151,7 @@ Onde:
 
 - Tempo de execução total
 - Speedup relativo à versão sequencial
-- Eficiência (speedup / número de threads/trabalhadores)
+- Eficiência (speedup / número de threads/workers)
 - Escalabilidade (comportamento com aumento de recursos)
 
 ### Limitações Identificadas
@@ -197,9 +197,8 @@ HeatDiffusion/
 ├── sequencial.py          # Implementação sequencial
 ├── paralelo.py            # Implementação paralela com threads
 ├── distribuido.py         # Implementação distribuída com sockets
-├── teste_desempenho.py    # Script de benchmark e análise
+├── benchmark.py           # Script de benchmark e análise
 ├── analisar_resultados.py # Script de análise detalhada
-├── executar_distribuido.py # Script auxiliar para execução distribuída
 ├── teste_rapido.py        # Teste rápido de consistência
 ├── requirements.txt       # Dependências do projeto
 ├── README.md              # Este arquivo
@@ -208,7 +207,7 @@ HeatDiffusion/
     ├── resultados_benchmark.csv
     ├── tamanho_vs_tempo.png
     ├── threads_vs_speedup.png
-    └── trabalhadores_vs_speedup.png
+    └── workers_vs_speedup.png
 ```
 
 ## 🔍 Verificação de Resultados
@@ -262,4 +261,4 @@ Este projeto é destinado exclusivamente para fins educacionais.
 
 1. As máquinas estão na mesma rede
 2. As portas necessárias estão abertas no firewall
-3. O endereço IP do servidor está acessível pelos trabalhadores
+3. O endereço IP do servidor está acessível pelos workers
