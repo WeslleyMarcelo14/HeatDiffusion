@@ -1,14 +1,3 @@
-"""
-Script de Benchmark para Comparação de Desempenho
-
-Este script executa testes de desempenho para as três versões:
-- Sequencial
-- Paralela (com diferentes números de threads)
-- Distribuída (com diferentes números de workers)
-
-Gera tabelas e gráficos comparativos.
-"""
-
 import argparse
 import time
 import json
@@ -17,217 +6,161 @@ from typing import List, Dict, Tuple
 import matplotlib.pyplot as plt
 import numpy as np
 
-from sequential import run_sequential_simulation
-from parallel import run_parallel_simulation
-from distributed import run_distributed_server, run_distributed_worker
+from benchmark import executar_simulacao_sequencial
+from benchmark import executar_simulacao_paralela
+from benchmark import executar_servidor_distribuido, executar_trabalhador_distribuido
 import subprocess
 import sys
 import os
 
 
-class BenchmarkRunner:
-    """
-    Classe para executar benchmarks e coletar resultados.
-    """
+class ExecutorBenchmark:
     
-    def __init__(self, output_dir='results'):
-        """
-        Inicializa o benchmark runner.
-        
-        Args:
-            output_dir: Diretório para salvar resultados
-        """
-        self.output_dir = output_dir
-        os.makedirs(output_dir, exist_ok=True)
-        self.results = []
+    def __init__(self, diretorio_saida='resultados'):
+        self.diretorio_saida = diretorio_saida
+        os.makedirs(diretorio_saida, exist_ok=True)
+        self.resultados = []
     
-    def run_sequential_benchmark(self, sizes: List[Tuple[int, int]], iterations: int):
-        """
-        Executa benchmark sequencial.
-        
-        Args:
-            sizes: Lista de tuplas (width, height) para testar
-            iterations: Número de iterações
-        """
+    def executar_benchmark_sequencial(self, tamanhos: List[Tuple[int, int]], iteracoes: int):
         print("\n" + "="*60)
         print("BENCHMARK SEQUENCIAL")
         print("="*60)
         
-        for width, height in sizes:
-            print(f"\nTestando tamanho {width}x{height}...")
-            execution_time = run_sequential_simulation(width, height, iterations, verbose=True)
+        for largura, altura in tamanhos:
+            print(f"\nTestando tamanho {largura}x{altura}...")
+            tempo_execucao = executar_simulacao_sequencial(largura, altura, iteracoes, detalhado=True)
             
-            self.results.append({
-                'version': 'sequential',
-                'width': width,
-                'height': height,
-                'iterations': iterations,
+            self.resultados.append({
+                'versao': 'sequencial',
+                'largura': largura,
+                'altura': altura,
+                'iteracoes': iteracoes,
                 'threads': 1,
-                'workers': 1,
-                'execution_time': execution_time
+                'trabalhadores': 1,
+                'tempo_execucao': tempo_execucao
             })
     
-    def run_parallel_benchmark(self, sizes: List[Tuple[int, int]], iterations: int, 
-                               thread_counts: List[int]):
-        """
-        Executa benchmark paralelo.
-        
-        Args:
-            sizes: Lista de tuplas (width, height) para testar
-            iterations: Número de iterações
-            thread_counts: Lista de números de threads para testar
-        """
+    def executar_benchmark_paralelo(self, tamanhos: List[Tuple[int, int]], iteracoes: int, 
+                               contagens_threads: List[int]):
         print("\n" + "="*60)
         print("BENCHMARK PARALELO")
         print("="*60)
         
-        for width, height in sizes:
-            for num_threads in thread_counts:
-                print(f"\nTestando tamanho {width}x{height} com {num_threads} threads...")
-                execution_time = run_parallel_simulation(
-                    width, height, iterations, num_threads, verbose=True
+        for largura, altura in tamanhos:
+            for num_threads in contagens_threads:
+                print(f"\nTestando tamanho {largura}x{altura} com {num_threads} threads...")
+                tempo_execucao = executar_simulacao_paralela(
+                    largura, altura, iteracoes, num_threads, detalhado=True
                 )
                 
-                self.results.append({
-                    'version': 'parallel',
-                    'width': width,
-                    'height': height,
-                    'iterations': iterations,
+                self.resultados.append({
+                    'versao': 'paralelo',
+                    'largura': largura,
+                    'altura': altura,
+                    'iteracoes': iteracoes,
                     'threads': num_threads,
-                    'workers': 1,
-                    'execution_time': execution_time
+                    'trabalhadores': 1,
+                    'tempo_execucao': tempo_execucao
                 })
     
-    def run_distributed_benchmark(self, sizes: List[Tuple[int, int]], iterations: int,
-                                  worker_counts: List[int], port_start=8888):
-        """
-        Executa benchmark distribuído.
-        
-        Args:
-            sizes: Lista de tuplas (width, height) para testar
-            iterations: Número de iterações
-            worker_counts: Lista de números de workers para testar
-            port_start: Porta inicial para servidores
-        """
+    def executar_benchmark_distribuido(self, tamanhos: List[Tuple[int, int]], iteracoes: int,
+                                  contagens_trabalhadores: List[int], porta_inicial=8888):
         print("\n" + "="*60)
         print("BENCHMARK DISTRIBUÍDO")
         print("="*60)
         
-        for width, height in sizes:
-            for num_workers in worker_counts:
-                print(f"\nTestando tamanho {width}x{height} com {num_workers} workers...")
-                print(f"Iniciando {num_workers} workers...")
+        for largura, altura in tamanhos:
+            for num_trabalhadores in contagens_trabalhadores:
+                print(f"\nTestando tamanho {largura}x{altura} com {num_trabalhadores} trabalhadores...")
+                print(f"Iniciando {num_trabalhadores} trabalhadores...")
                 
-                # Inicia workers em processos separados
-                worker_processes = []
-                port = port_start
+                processos_trabalhadores = []
+                porta = porta_inicial
                 
-                for i in range(num_workers):
-                    # Usa subprocess para iniciar workers
-                    # Em produção, workers devem estar em máquinas diferentes
-                    # Aqui simulamos com processos locais
+                for i in range(num_trabalhadores):
                     proc = subprocess.Popen(
-                        [sys.executable, 'distributed.py', 'worker', 'localhost', str(port)],
+                        [sys.executable, 'distribuido.py', 'worker', 'localhost', str(porta)],
                         stdout=subprocess.PIPE,
                         stderr=subprocess.PIPE
                     )
-                    worker_processes.append(proc)
+                    processos_trabalhadores.append(proc)
                 
-                # Aguarda workers iniciarem
                 time.sleep(1)
                 
-                # Executa servidor
-                execution_time = run_distributed_server(
-                    width, height, iterations, num_workers, port, verbose=True
+                tempo_execucao = executar_servidor_distribuido(
+                    largura, altura, iteracoes, num_trabalhadores, porta, detalhado=True
                 )
                 
-                # Aguarda workers terminarem
-                for proc in worker_processes:
+                for proc in processos_trabalhadores:
                     proc.wait()
                 
-                self.results.append({
-                    'version': 'distributed',
-                    'width': width,
-                    'height': height,
-                    'iterations': iterations,
+                self.resultados.append({
+                    'versao': 'distribuido',
+                    'largura': largura,
+                    'altura': altura,
+                    'iteracoes': iteracoes,
                     'threads': 1,
-                    'workers': num_workers,
-                    'execution_time': execution_time
+                    'trabalhadores': num_trabalhadores,
+                    'tempo_execucao': tempo_execucao
                 })
     
-    def save_results(self, filename='benchmark_results.json'):
-        """
-        Salva resultados em arquivo JSON.
-        
-        Args:
-            filename: Nome do arquivo de saída
-        """
-        filepath = os.path.join(self.output_dir, filename)
-        with open(filepath, 'w') as f:
-            json.dump(self.results, f, indent=2)
-        print(f"\nResultados salvos em {filepath}")
+    def salvar_resultados(self, nome_arquivo='resultados_benchmark.json'):
+        caminho_arquivo = os.path.join(self.diretorio_saida, nome_arquivo)
+        with open(caminho_arquivo, 'w') as f:
+            json.dump(self.resultados, f, indent=2)
+        print(f"\nResultados salvos em {caminho_arquivo}")
     
-    def save_csv(self, filename='benchmark_results.csv'):
-        """
-        Salva resultados em arquivo CSV.
-        
-        Args:
-            filename: Nome do arquivo de saída
-        """
-        filepath = os.path.join(self.output_dir, filename)
-        if not self.results:
+    def salvar_csv(self, nome_arquivo='resultados_benchmark.csv'):
+        caminho_arquivo = os.path.join(self.diretorio_saida, nome_arquivo)
+        if not self.resultados:
             return
         
-        fieldnames = ['version', 'width', 'height', 'iterations', 'threads', 'workers', 'execution_time']
-        with open(filepath, 'w', newline='') as f:
-            writer = csv.DictWriter(f, fieldnames=fieldnames)
-            writer.writeheader()
-            writer.writerows(self.results)
-        print(f"Resultados CSV salvos em {filepath}")
+        nomes_campos = ['versao', 'largura', 'altura', 'iteracoes', 'threads', 'trabalhadores', 'tempo_execucao']
+        with open(caminho_arquivo, 'w', newline='') as f:
+            escritor = csv.DictWriter(f, fieldnames=nomes_campos)
+            escritor.writeheader()
+            escritor.writerows(self.resultados)
+        print(f"Resultados CSV salvos em {caminho_arquivo}")
     
-    def generate_comparison_table(self):
-        """Gera tabela comparativa dos resultados."""
-        if not self.results:
+    def gerar_tabela_comparativa(self):
+        if not self.resultados:
             print("Nenhum resultado para exibir.")
             return
         
         print("\n" + "="*80)
         print("TABELA COMPARATIVA DE DESEMPENHO")
         print("="*80)
-        print(f"{'Versão':<15} {'Tamanho':<15} {'Threads':<10} {'Workers':<10} {'Tempo (s)':<15}")
+        print(f"{'Versão':<15} {'Tamanho':<15} {'Threads':<10} {'Trabalhadores':<15} {'Tempo (s)':<15}")
         print("-"*80)
         
-        for result in self.results:
-            size_str = f"{result['width']}x{result['height']}"
-            print(f"{result['version']:<15} {size_str:<15} {result['threads']:<10} "
-                  f"{result['workers']:<10} {result['execution_time']:<15.4f}")
+        for resultado in self.resultados:
+            tamanho_str = f"{resultado['largura']}x{resultado['altura']}"
+            print(f"{resultado['versao']:<15} {tamanho_str:<15} {resultado['threads']:<10} "
+                  f"{resultado['trabalhadores']:<15} {resultado['tempo_execucao']:<15.4f}")
     
-    def plot_size_vs_time(self):
-        """Gera gráfico de tempo vs tamanho do problema."""
-        if not self.results:
+    def plotar_tamanho_vs_tempo(self):
+        if not self.resultados:
             return
         
         fig, ax = plt.subplots(figsize=(10, 6))
         
-        # Agrupa por versão
-        versions = ['sequential', 'parallel', 'distributed']
-        colors = {'sequential': 'blue', 'parallel': 'green', 'distributed': 'red'}
+        versoes = ['sequencial', 'paralelo', 'distribuido']
+        cores = {'sequencial': 'blue', 'paralelo': 'green', 'distribuido': 'red'}
         
-        for version in versions:
-            version_results = [r for r in self.results if r['version'] == version]
-            if not version_results:
+        for versao in versoes:
+            resultados_versao = [r for r in self.resultados if r['versao'] == versao]
+            if not resultados_versao:
                 continue
             
-            # Usa o primeiro número de threads/workers para cada versão
-            if version == 'parallel':
-                version_results = [r for r in version_results if r['threads'] == max(set(r['threads'] for r in version_results))]
-            elif version == 'distributed':
-                version_results = [r for r in version_results if r['workers'] == max(set(r['workers'] for r in version_results))]
+            if versao == 'paralelo':
+                resultados_versao = [r for r in resultados_versao if r['threads'] == max(set(r['threads'] for r in resultados_versao))]
+            elif versao == 'distribuido':
+                resultados_versao = [r for r in resultados_versao if r['trabalhadores'] == max(set(r['trabalhadores'] for r in resultados_versao))]
             
-            sizes = [r['width'] * r['height'] for r in version_results]
-            times = [r['execution_time'] for r in version_results]
+            tamanhos = [r['largura'] * r['altura'] for r in resultados_versao]
+            tempos = [r['tempo_execucao'] for r in resultados_versao]
             
-            ax.plot(sizes, times, marker='o', label=version, color=colors[version])
+            ax.plot(tamanhos, tempos, marker='o', label=versao, color=cores[versao])
         
         ax.set_xlabel('Tamanho do Problema (largura × altura)')
         ax.set_ylabel('Tempo de Execução (segundos)')
@@ -236,42 +169,39 @@ class BenchmarkRunner:
         ax.grid(True, alpha=0.3)
         
         plt.tight_layout()
-        filepath = os.path.join(self.output_dir, 'size_vs_time.png')
-        plt.savefig(filepath, dpi=300)
-        print(f"Gráfico salvo em {filepath}")
+        caminho_arquivo = os.path.join(self.diretorio_saida, 'tamanho_vs_tempo.png')
+        plt.savefig(caminho_arquivo, dpi=300)
+        print(f"Gráfico salvo em {caminho_arquivo}")
         plt.close()
     
-    def plot_threads_vs_speedup(self):
-        """Gera gráfico de speedup vs número de threads."""
-        parallel_results = [r for r in self.results if r['version'] == 'parallel']
-        if not parallel_results:
+    def plotar_threads_vs_speedup(self):
+        resultados_paralelos = [r for r in self.resultados if r['versao'] == 'paralelo']
+        if not resultados_paralelos:
             return
         
-        # Agrupa por tamanho
-        sizes = set((r['width'], r['height']) for r in parallel_results)
+        tamanhos = set((r['largura'], r['altura']) for r in resultados_paralelos)
         
         fig, ax = plt.subplots(figsize=(10, 6))
         
-        for width, height in sizes:
-            size_results = [r for r in parallel_results 
-                          if r['width'] == width and r['height'] == height]
-            size_results.sort(key=lambda x: x['threads'])
+        for largura, altura in tamanhos:
+            resultados_tamanho = [r for r in resultados_paralelos 
+                          if r['largura'] == largura and r['altura'] == altura]
+            resultados_tamanho.sort(key=lambda x: x['threads'])
             
-            # Calcula speedup relativo ao sequencial
-            sequential_time = next(
-                (r['execution_time'] for r in self.results 
-                 if r['version'] == 'sequential' and r['width'] == width and r['height'] == height),
+            tempo_sequencial = next(
+                (r['tempo_execucao'] for r in self.resultados 
+                 if r['versao'] == 'sequencial' and r['largura'] == largura and r['altura'] == altura),
                 None
             )
             
-            if not sequential_time:
+            if not tempo_sequencial:
                 continue
             
-            threads = [r['threads'] for r in size_results]
-            speedups = [sequential_time / r['execution_time'] for r in size_results]
+            threads = [r['threads'] for r in resultados_tamanho]
+            speedups = [tempo_sequencial / r['tempo_execucao'] for r in resultados_tamanho]
             
-            label = f"{width}x{height}"
-            ax.plot(threads, speedups, marker='o', label=label)
+            rotulo = f"{largura}x{altura}"
+            ax.plot(threads, speedups, marker='o', label=rotulo)
         
         ax.set_xlabel('Número de Threads')
         ax.set_ylabel('Speedup')
@@ -280,69 +210,65 @@ class BenchmarkRunner:
         ax.grid(True, alpha=0.3)
         
         plt.tight_layout()
-        filepath = os.path.join(self.output_dir, 'threads_vs_speedup.png')
-        plt.savefig(filepath, dpi=300)
-        print(f"Gráfico salvo em {filepath}")
+        caminho_arquivo = os.path.join(self.diretorio_saida, 'threads_vs_speedup.png')
+        plt.savefig(caminho_arquivo, dpi=300)
+        print(f"Gráfico salvo em {caminho_arquivo}")
         plt.close()
     
-    def plot_workers_vs_speedup(self):
-        """Gera gráfico de speedup vs número de workers."""
-        distributed_results = [r for r in self.results if r['version'] == 'distributed']
-        if not distributed_results:
+    def plotar_trabalhadores_vs_speedup(self):
+        resultados_distribuidos = [r for r in self.resultados if r['versao'] == 'distribuido']
+        if not resultados_distribuidos:
             return
         
-        # Agrupa por tamanho
-        sizes = set((r['width'], r['height']) for r in distributed_results)
+        tamanhos = set((r['largura'], r['altura']) for r in resultados_distribuidos)
         
         fig, ax = plt.subplots(figsize=(10, 6))
         
-        for width, height in sizes:
-            size_results = [r for r in distributed_results 
-                          if r['width'] == width and r['height'] == height]
-            size_results.sort(key=lambda x: x['workers'])
+        for largura, altura in tamanhos:
+            resultados_tamanho = [r for r in resultados_distribuidos 
+                          if r['largura'] == largura and r['altura'] == altura]
+            resultados_tamanho.sort(key=lambda x: x['trabalhadores'])
             
-            # Calcula speedup relativo ao sequencial
-            sequential_time = next(
-                (r['execution_time'] for r in self.results 
-                 if r['version'] == 'sequential' and r['width'] == width and r['height'] == height),
+            tempo_sequencial = next(
+                (r['tempo_execucao'] for r in self.resultados 
+                 if r['versao'] == 'sequencial' and r['largura'] == largura and r['altura'] == altura),
                 None
             )
             
-            if not sequential_time:
+            if not tempo_sequencial:
                 continue
             
-            workers = [r['workers'] for r in size_results]
-            speedups = [sequential_time / r['execution_time'] for r in size_results]
+            trabalhadores = [r['trabalhadores'] for r in resultados_tamanho]
+            speedups = [tempo_sequencial / r['tempo_execucao'] for r in resultados_tamanho]
             
-            label = f"{width}x{height}"
-            ax.plot(workers, speedups, marker='o', label=label)
+            rotulo = f"{largura}x{altura}"
+            ax.plot(trabalhadores, speedups, marker='o', label=rotulo)
         
-        ax.set_xlabel('Número de Workers')
+        ax.set_xlabel('Número de Trabalhadores')
         ax.set_ylabel('Speedup')
-        ax.set_title('Speedup vs Número de Workers (Distribuído)')
+        ax.set_title('Speedup vs Número de Trabalhadores (Distribuído)')
         ax.legend()
         ax.grid(True, alpha=0.3)
         
         plt.tight_layout()
-        filepath = os.path.join(self.output_dir, 'workers_vs_speedup.png')
-        plt.savefig(filepath, dpi=300)
-        print(f"Gráfico salvo em {filepath}")
+        caminho_arquivo = os.path.join(self.diretorio_saida, 'trabalhadores_vs_speedup.png')
+        plt.savefig(caminho_arquivo, dpi=300)
+        print(f"Gráfico salvo em {caminho_arquivo}")
         plt.close()
 
 
-def get_system_info():
-    """Coleta informações do sistema."""
+def obter_info_sistema():
     import platform
     import psutil
     
     info = {
-        'OS': platform.system(),
-        'OS Version': platform.version(),
+        'SO': platform.system(),
+        'Versao SO': platform.version(),
         'CPU': platform.processor(),
-        'CPU Cores': psutil.cpu_count(logical=False),
-        'CPU Threads': psutil.cpu_count(logical=True),
-        'Memory (GB)': round(psutil.virtual_memory().total / (1024**3), 2),
-        'Python Version': platform.python_version()
+        'Nucleos CPU': psutil.cpu_count(logical=False),
+        'Threads CPU': psutil.cpu_count(logical=True),
+        'Memoria (GB)': round(psutil.virtual_memory().total / (1024**3), 2),
+        'Versao Python': platform.python_version()
     }
     
     return info
@@ -357,51 +283,46 @@ def main():
     parser.add_argument('--threads', nargs='+', type=int, default=[1, 2, 4, 8],
                        help='Números de threads para teste paralelo')
     parser.add_argument('--workers', nargs='+', type=int, default=[1, 2, 4],
-                       help='Números de workers para teste distribuído')
+                       help='Números de trabalhadores para teste distribuído')
     parser.add_argument('--sequential', action='store_true',
                        help='Executar apenas benchmark sequencial')
     parser.add_argument('--parallel', action='store_true',
                        help='Executar apenas benchmark paralelo')
     parser.add_argument('--distributed', action='store_true',
                        help='Executar apenas benchmark distribuído')
-    parser.add_argument('--output-dir', type=str, default='results',
+    parser.add_argument('--output-dir', type=str, default='resultados',
                        help='Diretório para salvar resultados')
     
     args = parser.parse_args()
     
-    # Se nenhuma versão específica foi escolhida, executa todas
-    run_all = not (args.sequential or args.parallel or args.distributed)
+    executar_todos = not (args.sequential or args.parallel or args.distributed)
     
-    # Prepara tamanhos
-    sizes = [(s, s) for s in args.sizes]
+    tamanhos = [(s, s) for s in args.sizes]
     
-    # Coleta informações do sistema
     print("="*60)
     print("INFORMAÇÕES DO SISTEMA")
     print("="*60)
-    system_info = get_system_info()
-    for key, value in system_info.items():
-        print(f"{key}: {value}")
+    info_sistema = obter_info_sistema()
+    for chave, valor in info_sistema.items():
+        print(f"{chave}: {valor}")
     
-    # Executa benchmarks
-    runner = BenchmarkRunner(args.output_dir)
+    executor = ExecutorBenchmark(args.output_dir)
     
-    if run_all or args.sequential:
-        runner.run_sequential_benchmark(sizes, args.iterations)
+    if executar_todos or args.sequential:
+        executor.executar_benchmark_sequencial(tamanhos, args.iterations)
     
-    if run_all or args.parallel:
-        runner.run_parallel_benchmark(sizes, args.iterations, args.threads)
+    if executar_todos or args.parallel:
+        executor.executar_benchmark_paralelo(tamanhos, args.iterations, args.threads)
     
-    if run_all or args.distributed:
-        runner.run_distributed_benchmark(sizes, args.iterations, args.workers)
+    if executar_todos or args.distributed:
+        executor.executar_benchmark_distribuido(tamanhos, args.iterations, args.workers)
     
-    # Gera relatórios
-    runner.generate_comparison_table()
-    runner.save_results()
-    runner.save_csv()
-    runner.plot_size_vs_time()
-    runner.plot_threads_vs_speedup()
-    runner.plot_workers_vs_speedup()
+    executor.gerar_tabela_comparativa()
+    executor.salvar_resultados()
+    executor.salvar_csv()
+    executor.plotar_tamanho_vs_tempo()
+    executor.plotar_threads_vs_speedup()
+    executor.plotar_trabalhadores_vs_speedup()
     
     print("\n" + "="*60)
     print("BENCHMARK CONCLUÍDO")
